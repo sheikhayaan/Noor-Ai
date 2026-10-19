@@ -39,6 +39,7 @@ from backend.app.conversation_store import (
 from backend.app import admin_store, byok, providers, task_queue
 from backend.app.gems import GEMS
 from backend.app.intelligence import profile_store, vector_store
+from backend.app.textfix import repair_mojibake
 from backend.app.intelligence.request_handler import IntelligentRequestHandler
 from backend.app.model_provider import generate_response, get_model_metadata
 from backend.app.schemas import (
@@ -251,6 +252,12 @@ def intelligent_chat(
         )
 
     latency_ms = int((time.perf_counter() - _t0) * 1000)
+
+    # Encoding backstop: the gateway can hand back text whose UTF-8 bytes were
+    # decoded as a single-byte codec ("overâ€‘theâ€‘counter").
+    # Repair once, at the boundary where the answer becomes user-visible and is
+    # persisted, so both the response and the stored history stay clean.
+    answer = repair_mojibake(answer)
 
     # One write transaction for the turn (conversation + both messages +
     # analytics). SQLite has one writer, so a single commit per request is what

@@ -93,7 +93,22 @@ Copy-Item .env.example .env      # every key has a working code default
   `.env` (dev default: `ngw_sk_dev`), and `NOOR_GATEWAY_BASE_URL` must match its
   `GATEWAY_PORT`.
 - The admin dashboard (`/admin`) shows live gateway cache health, proxied
-  server-side so the gateway key never reaches the browser.
+  server-side so the gateway key never reaches the browser. Access is
+  allowlisted server-side: `NOOR_ADMIN_EMAILS` (comma separated) plus
+  `NOOR_ADMIN_ALLOW_LOOPBACK=true` for local development. Set it to your own
+  address, e.g. `NOOR_ADMIN_EMAILS=you@example.com`.
+
+## Pages
+
+| Route | What it is |
+|---|---|
+| `/` | Landing page |
+| `/chat` | Chat workspace: gems, attachments, model picker, per-answer savings |
+| `/signin` | Sign-in (Google) with a guest fallback |
+| `/dashboard` | Signed-in home: history, tokens/USD saved, memory topics, attached keys |
+| `/memory` | Memory inspector and savings analytics; delete anything here |
+| `/why` | How Noor works, as a request flow chart plus a value tree |
+| `/admin` | Admin console (allowlisted emails, or loopback in dev) |
 
 ### Verify the wiring
 

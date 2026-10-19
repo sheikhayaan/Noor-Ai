@@ -1,4 +1,5 @@
 from backend.app.database import get_connection, transaction
+from backend.app.textfix import repair_mojibake
 
 
 def save_message(conversation_id: str, role: str, content: str) -> None:
@@ -36,7 +37,8 @@ def get_messages(conversation_id: str) -> list[dict]:
             {
                 "id": row[0],
                 "role": row[1],
-                "content": row[2],
+                # Rows written before the encoding fix carry mojibake.
+                "content": repair_mojibake(row[2]),
                 "created_at": row[3],
             }
             for row in cursor.fetchall()

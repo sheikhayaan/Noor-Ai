@@ -72,8 +72,17 @@ def list_models(
     session: SessionIdentity | None = Depends(get_current_user),
     user_id: str = "local_user",
 ):
-    """Every model the user can pick, with availability flags for the picker."""
-    resolved = resolve_user_id(session, user_id)
+    """Every model the user can pick, with availability flags for the picker.
+
+    Public by design: the catalog is static metadata and reveals nothing about
+    any account. Only *availability* is per user. Refusing anonymous callers
+    here made the composer render an empty model list until a session existed,
+    which looked like a broken picker rather than "sign in to add a key".
+    """
+    if session is None:
+        resolved = f"anonymous:{user_id or 'local'}"
+    else:
+        resolved = resolve_user_id(session, user_id)
     return ModelsResponse(
         models=[ModelInfo(**item) for item in byok.catalog(resolved)],
         byok_enabled=NOOR_BYOK_ENABLED,

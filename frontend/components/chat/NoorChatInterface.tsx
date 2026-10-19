@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChangeEvent, FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 
+import { Markdown } from "@/components/chat/Markdown";
 import { ModelPicker } from "@/components/chat/ModelPicker";
 import {
   Archive,
@@ -15,6 +16,9 @@ import {
   FileText,
   GraduationCap,
   Image,
+  LayoutDashboard,
+  PiggyBank,
+  Route,
   LayoutGrid,
   LogIn,
   LogOut,
@@ -42,6 +46,7 @@ import {
   ensureGuestSession,
   fetchGems,
   fetchMessages,
+  fetchSavings,
   listConversations,
   logout,
   rateMessage,
@@ -50,7 +55,7 @@ import {
   type NoorUser,
 } from "@/lib/api";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
-import { SavingsPill, type ResponseSavings } from "@/components/intelligence/SavingsPill";
+import { ResponseDetails, type ResponseSavings } from "@/components/intelligence/SavingsPill";
 
 type MessageRole = "assistant" | "user";
 
@@ -200,6 +205,7 @@ export function NoorChatInterface() {
   const [memory, setMemory] = useState<string[]>([]);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [savings, setSavings] = useState<{ tokens: number; usd: number; requests: number } | null>(null);
   // "" / "noor-auto" = Noor's routed+cached default; anything else needs a BYOK key.
   const [modelId, setModelId] = useState("noor-auto");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -213,6 +219,21 @@ export function NoorChatInterface() {
   const limitReached = usage.count >= DAILY_LIMIT;
 
   // Load conversations for a user (or guest) from the backend, always fronted by a fresh draft.
+  // Honest, user-scoped savings for the sidebar. Best-effort: a guest with no
+  // cache history simply shows zero, never a fake number.
+  async function refreshSavings(userId?: string) {
+    try {
+      const summary = await fetchSavings(userId || currentUserId || "guest");
+      setSavings({
+        tokens: summary.total_tokens_saved ?? 0,
+        usd: summary.total_cost_saved_usd ?? 0,
+        requests: summary.total_requests ?? 0,
+      });
+    } catch {
+      setSavings(null);
+    }
+  }
+
   async function loadConversations(userId: string) {
     let serverConversations: Conversation[] = [];
     try {
@@ -292,15 +313,16 @@ export function NoorChatInterface() {
         // Gems endpoint down — the composer still works with the default gem.
       });
 
-    loadConversations(initialUser?.user_id ?? gid);
-
-    if (!initialUser) {
-      // No logged-in user: bind to a server-signed guest session, then reload
-      // under the server identity so the app is enforce-ready and non-breaking.
-      bootstrapGuestSession(gid).then((id) => {
-        if (id !== gid) loadConversations(id);
-      });
-    }
+    // Identity first, requests second. Loading conversations before the guest
+    // session exists meant every authed call (history, models, savings) fired
+    // without a cookie and came back 401 — the UI then showed an empty history
+    // and no savings on a fresh visit.
+    void (async () => {
+      const identity = initialUser?.user_id ?? gid;
+      const resolved = initialUser ? identity : await bootstrapGuestSession(gid);
+      await loadConversations(resolved);
+      void refreshSavings(resolved);
+    })();
 
     function syncOnline() {
       setOffline(!navigator.onLine);
@@ -448,7 +470,10 @@ export function NoorChatInterface() {
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
     setSignInOpen(false);
     setSignInError(null);
-    loadConversations(nextUser.user_id);
+    // Signing in switches identity: everything user-scoped has to be refetched,
+    // otherwise the sidebar keeps showing the guest's (empty) history.
+    void loadConversations(nextUser.user_id);
+    void refreshSavings(nextUser.user_id);
   }
 
   function signOut() {
@@ -553,6 +578,7 @@ export function NoorChatInterface() {
       });
 
       // A draft becomes a real, server-backed conversation once the backend assigns its id.
+      void refreshSavings();
       const realId = response.conversation_id;
       if (conversation.isDraft && realId !== conversation.id) {
         setConversations((items) =>
@@ -645,6 +671,7 @@ export function NoorChatInterface() {
               conversations={conversations}
               activeId={activeId}
               collapsed={false}
+              savings={savings}
               onNewChat={() => newChat()}
               onSelect={selectConversation}
               onRename={renameChat}
@@ -659,6 +686,7 @@ export function NoorChatInterface() {
           conversations={conversations}
           activeId={activeId}
           collapsed={!sidebarOpen}
+          savings={savings}
           onNewChat={() => newChat()}
           onSelect={selectConversation}
           onRename={renameChat}
@@ -826,6 +854,7 @@ function SidebarContent({
   conversations,
   activeId,
   collapsed,
+  savings,
   onNewChat,
   onSelect,
   onRename,
@@ -835,6 +864,7 @@ function SidebarContent({
   conversations: Conversation[];
   activeId: string;
   collapsed: boolean;
+  savings?: { tokens: number; usd: number; requests: number } | null;
   onNewChat: () => void;
   onSelect: (conversation: Conversation) => void;
   onRename: (id: string) => void;
@@ -860,6 +890,16 @@ function SidebarContent({
         <SidebarAction icon={<Search size={17} />} label="Search chats" open={!collapsed} />
         <SidebarAction icon={<LayoutGrid size={17} />} label="Projects" open={!collapsed} />
         <SidebarAction icon={<Sparkles size={17} />} label="Gems" open={!collapsed} />
+        <Link
+          href="/dashboard"
+          className={cn(
+            "flex h-10 items-center gap-3 rounded-xl px-3 text-sm text-white/70 transition hover:bg-white/[0.06] hover:text-white",
+            collapsed && "justify-center px-0",
+          )}
+        >
+          <LayoutDashboard size={17} />
+          {!collapsed && <span>Dashboard</span>}
+        </Link>
         <Link
           href="/memory"
           className={cn(
@@ -902,6 +942,34 @@ function SidebarContent({
         </div>
       </div>
 
+      <Link
+        href="/why"
+        className={cn(
+          "flex h-10 items-center gap-3 rounded-xl px-3 text-sm text-white/70 transition hover:bg-white/[0.06] hover:text-white",
+          collapsed && "justify-center px-0",
+        )}
+      >
+        <Route size={17} />
+        {!collapsed && <span>Why Noor</span>}
+      </Link>
+
+      {!collapsed && savings && savings.tokens > 0 && (
+        <Link
+          href="/memory"
+          className="mt-3 rounded-2xl border border-emerald-300/20 bg-emerald-300/[0.06] p-3 text-xs text-emerald-50/80 transition hover:border-emerald-300/40"
+        >
+          <span className="mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-emerald-200/80">
+            <PiggyBank size={13} /> You saved
+          </span>
+          <span className="block text-base font-semibold text-white">
+            {savings.tokens.toLocaleString()} tokens
+          </span>
+          <span className="mt-0.5 block text-white/55">
+            ≈ ${savings.usd.toFixed(4)} across {savings.requests.toLocaleString()} requests
+          </span>
+        </Link>
+      )}
+
       <Link className={cn("mt-3 flex items-center gap-3 border-t border-white/10 px-3 py-3 text-sm text-white/72 transition hover:text-white", collapsed && "justify-center px-0")} href="/">
         <Compass size={18} />
         {!collapsed && <span>Back to landing</span>}
@@ -936,16 +1004,23 @@ function MessageRow({
   return (
     <motion.article className={cn("flex gap-4", user && "justify-end")} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
       {!user && <Avatar role="assistant" />}
-      <div className={cn("max-w-[min(100%,680px)] whitespace-pre-wrap rounded-3xl px-5 py-4 text-[15.5px] leading-7", user ? "bg-[#2f3033] text-white" : "bg-transparent px-0 text-white/86")}>
+      <div
+        className={cn(
+          "max-w-[min(100%,680px)] rounded-3xl text-[15.5px] leading-7",
+          user
+            ? "whitespace-pre-wrap bg-[#2f3033] px-5 py-4 text-white"
+            : "bg-transparent px-0 text-white/86",
+        )}
+      >
         {message.attachments?.length ? (
           <div className="mb-3 flex flex-wrap gap-2">
             {message.attachments.map((file) => <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-white/56" key={file.id}>{file.name}</span>)}
           </div>
         ) : null}
-        {message.content}
+        {user ? message.content : <Markdown content={message.content} />}
         {!user && (message.savings || canRate) && (
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            {message.savings && <SavingsPill savings={message.savings} />}
+            {message.savings && <ResponseDetails savings={message.savings} />}
             {canRate && (
               <div className="flex items-center gap-1">
                 <button

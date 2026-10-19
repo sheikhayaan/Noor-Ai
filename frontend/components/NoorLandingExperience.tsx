@@ -43,6 +43,9 @@ const navLinks = [
   { label: "Core", href: "#core" },
   { label: "Playground", href: "#playground" },
   { label: "Performance", href: "#performance" },
+  // Route (not anchor): the diagrams live on their own page so they stay
+  // readable instead of being one more scroll section.
+  { label: "Why Noor", href: "/why", route: true },
 ];
 
 export function NoorLandingExperience() {
@@ -76,11 +79,17 @@ export function NoorLandingExperience() {
           </Link>
 
           <div className="hidden items-center gap-1 rounded-full border border-white/8 bg-black/18 p-1 text-sm text-white/58 lg:flex">
-            {navLinks.map((item) => (
-              <a className="rounded-full px-3.5 py-2 transition hover:bg-white/[0.07] hover:text-white" href={item.href} key={item.label}>
-                {item.label}
-              </a>
-            ))}
+            {navLinks.map((item) =>
+              item.route ? (
+                <Link className="rounded-full px-3.5 py-2 transition hover:bg-white/[0.07] hover:text-white" href={item.href} key={item.label}>
+                  {item.label}
+                </Link>
+              ) : (
+                <a className="rounded-full px-3.5 py-2 transition hover:bg-white/[0.07] hover:text-white" href={item.href} key={item.label}>
+                  {item.label}
+                </a>
+              ),
+            )}
           </div>
 
           <div className="hidden items-center gap-2 rounded-full border border-cyan-200/14 bg-cyan-200/[0.055] px-3 py-2 text-xs font-semibold text-cyan-100 md:flex">
@@ -90,7 +99,7 @@ export function NoorLandingExperience() {
 
           <div className="flex items-center gap-2">
             <Button asChild className="hidden md:inline-flex" size="md" variant="ghost">
-              <Link href="/chat">Sign in</Link>
+              <Link href="/signin">Sign in</Link>
             </Button>
             <Button
               asChild

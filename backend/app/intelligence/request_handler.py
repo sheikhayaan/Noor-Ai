@@ -18,6 +18,8 @@ route, not here.
 """
 from __future__ import annotations
 
+from backend.app.textfix import repair_mojibake
+
 import logging
 import uuid
 from typing import Optional
@@ -79,7 +81,7 @@ class IntelligentRequestHandler:
         )
         if cache["hit"] and cache.get("cached_response"):
             return self._finish(
-                content=cache["cached_response"],
+                content=repair_mojibake(cache["cached_response"]),
                 user_id=user_id,
                 conversation_id=conversation_id,
                 cache_hit=True,
@@ -124,7 +126,7 @@ class IntelligentRequestHandler:
         tokens_saved = max(0, baseline_tokens - actual_prompt_tokens)
 
         return self._finish(
-            content=reply.content,
+            content=repair_mojibake(reply.content),
             user_id=user_id,
             conversation_id=conversation_id,
             cache_hit=reply.cache_hit,
