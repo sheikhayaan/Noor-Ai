@@ -120,6 +120,14 @@ _ALLOWED_ORIGINS = sorted(
     {
         "http://127.0.0.1:3000",
         "http://localhost:3000",
+        # Alternate dev ports. `next dev` silently moves to the next free port
+        # when 3000 is taken, and another app on 3000 (or a second checkout) is
+        # common — without these the browser gets an opaque CORS failure that
+        # looks like the backend being down.
+        "http://127.0.0.1:3001",
+        "http://localhost:3001",
+        "http://127.0.0.1:3100",
+        "http://localhost:3100",
         # Phase 5: trusted local HTTPS (mkcert). Additive, so plain HTTP keeps
         # working; these only matter once the frontend is served over TLS.
         "https://127.0.0.1:3000",
