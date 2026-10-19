@@ -22,9 +22,11 @@ import {
 } from "lucide-react";
 
 import {
+  ensureGuestSession,
   fetchAdminWhoami,
   fetchByokKeys,
   fetchSavings,
+  getSession,
   listConversations,
   type AdminWhoami,
   type ByokKey,
@@ -128,13 +130,37 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const who = readIdentity();
-    setIdentity(who);
+    const local = readIdentity();
+    setIdentity(local);
 
     void (async () => {
+      // The signed session, not localStorage, is the source of truth. A cold
+      // visit (or an expired cookie) would otherwise query with a stale local
+      // id and come back 401 — an empty dashboard that looks like lost data.
+      let userId = local.userId;
+      try {
+        const session = await getSession();
+        if (session.authenticated && session.user_id) {
+          userId = session.user_id;
+          setIdentity({
+            userId,
+            name: session.name,
+            email: session.email,
+            guest: session.is_guest,
+          });
+        } else {
+          const guest = await ensureGuestSession();
+          userId = guest.user_id;
+          setIdentity({ userId, name: null, email: null, guest: true });
+        }
+      } catch {
+        // Backend unreachable: keep the local identity so the page still renders
+        // and the error banner explains why the numbers are missing.
+      }
+
       const results = await Promise.allSettled([
-        listConversations(who.userId),
-        fetchSavings(who.userId, 30),
+        listConversations(userId),
+        fetchSavings(userId, 30),
         fetchByokKeys(),
         fetchAdminWhoami(),
       ]);
