@@ -1,0 +1,9 @@
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-dotenv==1.2.2
+openai==2.38.0
+google-auth==2.53.0
+requests==2.34.2
+# Noor Intelligence Layer
+qdrant-client>=1.9,<2
+httpx>=0.27,<1  # async gateway calls (also pulled in transitively by openai)

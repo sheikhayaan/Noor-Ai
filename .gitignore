@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+*.pid
+*.log
+frontend/config.js
+.noor_secret
+*.db
+*.sqlite3
+*.sqlite3-journal
+data/
+.next/
+node_modules/
+*.before-noor-ai-fix
+
+# Kept local: pushing this needs a token with the `workflow` scope.
+.github/workflows/
+*.db-wal
+*.db-shm
+qdrant_data/

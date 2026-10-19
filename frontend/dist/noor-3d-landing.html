@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Noor AI | Cinematic Learning Interface</title>
+  <meta name="description" content="Noor AI premium dark-mode learning interface with a cinematic 3D student scene." />
+  <style>
+    :root {
+      --bg: #0d0e12;
+      --panel: rgba(255, 255, 255, 0.055);
+      --panel-strong: rgba(255, 255, 255, 0.1);
+      --line: rgba(255, 255, 255, 0.14);
+      --line-soft: rgba(255, 255, 255, 0.08);
+      --text: rgba(255, 255, 255, 0.94);
+      --muted: rgba(255, 255, 255, 0.62);
+      --teal: #40ffe2;
+      --blue: #4ca8ff;
+      --purple: #b96cff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-height: 100%;
+      background: var(--bg);
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-height: 200vh;
+      margin: 0;
+      background:
+        radial-gradient(circle at 72% 18%, rgba(64, 255, 226, 0.13), transparent 31vw),
+        radial-gradient(circle at 18% 78%, rgba(185, 108, 255, 0.16), transparent 34vw),
+        linear-gradient(180deg, #0d0e12 0%, #05060a 100%);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+    }
+
+    ::selection {
+      background: #fff;
+      color: #000;
+    }
+
+    #webgl-stage {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    #webgl-stage canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .noise,
+    .scanline {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .noise {
+      opacity: 0.28;
+      mix-blend-mode: soft-light;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 72px 72px;
+      mask-image: radial-gradient(circle at center, #000 0%, transparent 74%);
+    }
+
+    .scanline {
+      opacity: 0.18;
+      background: linear-gradient(180deg, transparent 0%, rgba(64, 255, 226, 0.08) 50%, transparent 100%);
+      height: 28vh;
+      animation: scanDrift 6s ease-in-out infinite;
+    }
+
+    .nav-shell {
+      position: fixed;
+      top: 22px;
+      left: 50%;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: min(1120px, calc(100vw - 36px));
+      min-height: 64px;
+      padding: 10px 12px 10px 18px;
+      border: 1px solid var(--line-soft);
+      border-radius: 999px;
+      background: rgba(13, 14, 18, 0.42);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 22px 80px rgba(0, 0, 0, 0.42);
+      backdrop-filter: blur(16px);
+      transform: translateX(-50%);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 50%;
+      color: #fff;
+      font-weight: 800;
+      box-shadow: 0 0 28px rgba(64, 255, 226, 0.16);
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    .brand span {
+      display: block;
+      color: var(--muted);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nav-links a,
+    .nav-cta {
+      border: 1px solid transparent;
+      border-radius: 999px;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 13px;
+      text-decoration: none;
+      transition: border-color 180ms ease, background 180ms ease, color 180ms ease, transform 180ms ease;
+    }
+
+    .nav-links a {
+      padding: 10px 15px;
+    }
+
+    .nav-links a:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+    }
+
+    .nav-cta {
+      padding: 12px 18px;
+      border-color: rgba(64, 255, 226, 0.26);
+      background: rgba(64, 255, 226, 0.11);
+      color: #dffff8;
+      font-weight: 700;
+      box-shadow: 0 0 28px rgba(64, 255, 226, 0.12);
+    }
+
+    .nav-cta:hover {
+      transform: translateY(-1px);
+      border-color: rgba(64, 255, 226, 0.48);
+      background: rgba(64, 255, 226, 0.17);
+    }
+
+    main {
+      position: relative;
+      z-index: 2;
+    }
+
+    section {
+      position: relative;
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+      padding: 118px clamp(22px, 6vw, 92px) 64px;
+    }
+
+    #hero {
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    #features {
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .content-card {
+      width: min(520px, 100%);
+      padding: clamp(24px, 4vw, 42px);
+      border: 1px solid var(--line);
+      border-radius: 34px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.028)),
+        rgba(13, 14, 18, 0.46);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 34px 120px rgba(0, 0, 0, 0.52);
+      backdrop-filter: blur(10px);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 22px;
+      color: rgba(64, 255, 226, 0.82);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--teal);
+      box-shadow: 0 0 18px var(--teal);
+    }
+
+    h1,
+    h2 {
+      margin: 0;
+      color: #fff;
+      font-size: clamp(44px, 7vw, 92px);
+      font-weight: 800;
+      letter-spacing: -0.055em;
+      line-height: 0.92;
+      text-shadow:
+        0 0 22px rgba(64, 255, 226, 0.22),
+        0 0 70px rgba(76, 168, 255, 0.2);
+    }
+
+    h2 {
+      font-size: clamp(38px, 5.5vw, 74px);
+    }
+
+    p {
+      margin: 24px 0 0;
+      color: var(--muted);
+      font-size: clamp(16px, 2vw, 19px);
+      line-height: 1.7;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 28px;
+    }
+
+    .metric {
+      min-height: 86px;
+      padding: 16px 14px;
+      border: 1px solid var(--line-soft);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .metric strong {
+      display: block;
+      color: #fff;
+      font-size: 20px;
+      letter-spacing: -0.02em;
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 6px;
+      color: rgba(255, 255, 255, 0.5);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .scroll-cue {
+      position: absolute;
+      left: clamp(22px, 6vw, 92px);
+      bottom: 34px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .scroll-cue i {
+      width: 34px;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.35);
+      transform-origin: left center;
+      animation: cuePulse 1.9s ease-in-out infinite;
+    }
+
+    .status-dock {
+      position: fixed;
+      right: 24px;
+      bottom: 22px;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--line-soft);
+      border-radius: 999px;
+      background: rgba(13, 14, 18, 0.54);
+      color: rgba(255, 255, 255, 0.6);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      backdrop-filter: blur(10px);
+    }
+
+    .status-dock i {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--teal);
+      box-shadow: 0 0 18px var(--teal);
+      animation: statusPulse 1.4s ease-in-out infinite;
+    }
+
+    @media (max-width: 760px) {
+      .nav-shell {
+        align-items: stretch;
+        border-radius: 26px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .brand span {
+        letter-spacing: 0.14em;
+      }
+
+      section,
+      #hero,
+      #features {
+        align-items: flex-end;
+        justify-content: center;
+        padding: 112px 18px 72px;
+      }
+
+      .content-card {
+        border-radius: 28px;
+      }
+
+      .metrics {
+        grid-template-columns: 1fr;
+      }
+
+      .status-dock {
+        left: 18px;
+        right: 18px;
+        justify-content: center;
+      }
+    }
+
+    @keyframes cuePulse {
+      0%,
+      100% {
+        transform: scaleX(0.6);
+        opacity: 0.42;
+      }
+      50% {
+        transform: scaleX(1.35);
+        opacity: 1;
+      }
+    }
+
+    @keyframes scanDrift {
+      0% {
+        transform: translateY(-30vh);
+      }
+      100% {
+        transform: translateY(110vh);
+      }
+    }
+
+    @keyframes statusPulse {
+      0%,
+      100% {
+        transform: scale(0.82);
+        opacity: 0.6;
+      }
+      50% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="webgl-stage" aria-hidden="true"></div>
+  <div class="noise" aria-hidden="true"></div>
+  <div class="scanline" aria-hidden="true"></div>
+
+  <nav class="nav-shell" aria-label="Primary navigation">
+    <a class="brand" href="#hero" aria-label="Noor AI home">
+      <span class="brand-mark">N</span>
+      <span>
+        <strong>Noor AI</strong>
+        <span>Learning OS</span>
+      </span>
+    </a>
+    <div class="nav-links" aria-label="Page links">
+      <a href="#hero">focus</a>
+      <a href="#features">celebrate</a>
+      <a href="#features">workflow</a>
+    </div>
+    <a class="nav-cta" href="#features">See motion</a>
+  </nav>
+
+  <main>
+    <section id="hero" aria-labelledby="hero-title">
+      <div class="content-card">
+        <span class="eyebrow">Idle learning state</span>
+        <h1 id="hero-title">Noor studies with you.</h1>
+        <p>
+          A premium AI workspace where the environment reacts like a dark-room studio:
+          focused, cinematic, and engineered around deep learning sessions.
+        </p>
+        <div class="metrics" aria-label="Interface metrics">
+          <div class="metric"><strong>3D</strong><span>student scene</span></div>
+          <div class="metric"><strong>AI</strong><span>study flow</span></div>
+          <div class="metric"><strong>24/7</strong><span>focus mode</span></div>
+        </div>
+      </div>
+      <div class="scroll-cue"><i></i> Scroll to re-frame</div>
+    </section>
+
+    <section id="features" aria-labelledby="features-title">
+      <div class="content-card">
+        <span class="eyebrow">Happy celebrate state</span>
+        <h2 id="features-title">Progress should feel alive.</h2>
+        <p>
+          As the user scrolls, the camera glides closer, the laptop glow intensifies,
+          and the student crossfades from focused work into a success animation.
+        </p>
+        <div class="metrics" aria-label="Animation pipeline">
+          <div class="metric"><strong>GSAP</strong><span>scroll camera</span></div>
+          <div class="metric"><strong>GLTF</strong><span>clip blend</span></div>
+          <div class="metric"><strong>ACES</strong><span>cinema tone</span></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="status-dock"><i></i> WebGL scene armed</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.166.1/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+    gsap.registerPlugin(ScrollTrigger);
+
+    const MODEL_URL = "/models/student_scene.glb";
+    const stage = document.getElementById("webgl-stage");
+    const clock = new THREE.Clock();
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 120);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+
+    let mixer = null;
+    let idleAction = null;
+    let celebrateAction = null;
+    let studentRoot = null;
+    let laptopGlow = null;
+    const cameraTarget = new THREE.Vector3(0, 1.05, 0);
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.18;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    stage.appendChild(renderer.domElement);
+
+    camera.position.set(3.6, 1.95, 5.4);
+    camera.lookAt(cameraTarget);
+
+    // Cinematic dark-room baseline light. Intentionally dim.
+    const ambient = new THREE.AmbientLight(0x1a1a24, 0.72);
+    scene.add(ambient);
+
+    // Neon studio rim lights create blue and purple silhouette edges.
+    const blueRim = new THREE.DirectionalLight(0x4ca8ff, 3.4);
+    blueRim.position.set(-5, 6, 4);
+    blueRim.castShadow = true;
+    blueRim.shadow.mapSize.set(2048, 2048);
+    scene.add(blueRim);
+
+    const purpleRim = new THREE.DirectionalLight(0xb96cff, 2.6);
+    purpleRim.position.set(4, -1.2, -3.6);
+    scene.add(purpleRim);
+
+    const fill = new THREE.PointLight(0x1b4eff, 0.75, 7);
+    fill.position.set(0, 1.8, -2.2);
+    scene.add(fill);
+
+    const floor = new THREE.Mesh(
+      new THREE.CircleGeometry(4.4, 96),
+      new THREE.MeshStandardMaterial({
+        color: 0x07080c,
+        roughness: 0.92,
+        metalness: 0.04,
+        transparent: true,
+        opacity: 0.72
+      })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.03;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(2.4, 0.006, 8, 180),
+      new THREE.MeshBasicMaterial({ color: 0x40ffe2, transparent: true, opacity: 0.22 })
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.04;
+    scene.add(ring);
+
+    const particleField = buildParticleField();
+    scene.add(particleField);
+
+    loadStudentScene();
+    setupScrollPipeline();
+    animate();
+
+    function loadStudentScene() {
+      const loader = new GLTFLoader();
+      loader.load(
+        MODEL_URL,
+        (gltf) => {
+          studentRoot = gltf.scene;
+          studentRoot.position.set(0.25, 0, 0);
+          studentRoot.rotation.y = -0.38;
+          studentRoot.scale.setScalar(1.22);
+
+          studentRoot.traverse((object) => {
+            if (!object.isMesh) return;
+
+            object.castShadow = true;
+            object.receiveShadow = true;
+
+            const name = object.name.toLowerCase();
+            const materialName = (object.material?.name || "").toLowerCase();
+            const semanticName = `${name} ${materialName}`;
+
+            if (/(hoodie|cloth|shirt|jacket|pants|shoe|laptop|keyboard|body|case)/i.test(semanticName)) {
+              object.material = darkenMaterial(object.material, semanticName);
+            }
+
+            if (/(screen|display|monitor)/i.test(semanticName)) {
+              object.material = new THREE.MeshStandardMaterial({
+                color: 0x061b1e,
+                emissive: 0x40ffe2,
+                emissiveIntensity: 2.4,
+                roughness: 0.32,
+                metalness: 0.08
+              });
+            }
+          });
+
+          laptopGlow = new THREE.SpotLight(0x40ffe2, 18, 4.2, Math.PI / 5.5, 0.58, 1.2);
+          laptopGlow.position.set(0.18, 0.82, 0.52);
+          laptopGlow.target.position.set(0.03, 1.62, 0.12);
+          studentRoot.add(laptopGlow);
+          studentRoot.add(laptopGlow.target);
+
+          scene.add(studentRoot);
+
+          mixer = new THREE.AnimationMixer(studentRoot);
+          idleAction = findClipAction(gltf.animations, "idle_learning");
+          celebrateAction = findClipAction(gltf.animations, "happy_celebrate");
+
+          if (idleAction) {
+            idleAction.play();
+            idleAction.weight = 1;
+          }
+
+          if (celebrateAction) {
+            celebrateAction.play();
+            celebrateAction.weight = 0;
+          }
+        },
+        undefined,
+        () => {
+          buildFallbackHologram();
+        }
+      );
+    }
+
+    function darkenMaterial(sourceMaterial, semanticName) {
+      const darkColor = semanticName.includes("laptop")
+        ? new THREE.Color(0x080b10)
+        : semanticName.includes("pants") || semanticName.includes("shoe")
+          ? new THREE.Color(0x050608)
+          : new THREE.Color(0x101827);
+
+      return new THREE.MeshStandardMaterial({
+        color: darkColor,
+        roughness: 0.88,
+        metalness: semanticName.includes("laptop") ? 0.18 : 0.04,
+        map: sourceMaterial?.map || null,
+        normalMap: sourceMaterial?.normalMap || null,
+        emissive: new THREE.Color(0x000000)
+      });
+    }
+
+    function findClipAction(animations, name) {
+      if (!mixer) return null;
+      const clip = THREE.AnimationClip.findByName(animations, name);
+      return clip ? mixer.clipAction(clip) : null;
+    }
+
+    function crossfadeTo(mode) {
+      if (!idleAction || !celebrateAction) return;
+      const next = mode === "celebrate" ? celebrateAction : idleAction;
+      const current = mode === "celebrate" ? idleAction : celebrateAction;
+
+      next.reset();
+      next.enabled = true;
+      next.setEffectiveTimeScale(1);
+      next.setEffectiveWeight(1);
+      next.play();
+      current.crossFadeTo(next, 0.5, false);
+
+      if (laptopGlow) {
+        gsap.to(laptopGlow, { intensity: mode === "celebrate" ? 24 : 18, duration: 0.5, ease: "power2.out" });
+      }
+    }
+
+    function setupScrollPipeline() {
+      if (reducedMotion) return;
+
+      gsap.timeline({
+        scrollTrigger: {
+          trigger: "#features",
+          start: "top 72%",
+          end: "bottom bottom",
+          scrub: 1,
+          onEnter: () => crossfadeTo("celebrate"),
+          onLeaveBack: () => crossfadeTo("idle")
+        }
+      })
+      .to(camera.position, { x: -2.65, y: 1.58, z: 3.15, ease: "none" }, 0)
+      .to(cameraTarget, {
+        x: 0.3,
+        y: 1.16,
+        z: 0.04,
+        ease: "none",
+        onUpdate: () => camera.lookAt(cameraTarget)
+      }, 0)
+      .to(ring.rotation, { z: Math.PI * 1.25, ease: "none" }, 0)
+      .to(ring.scale, { x: 1.14, y: 1.14, z: 1.14, ease: "none" }, 0);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      const elapsed = clock.elapsedTime;
+
+      if (mixer) mixer.update(delta);
+      if (studentRoot) studentRoot.rotation.y += Math.sin(elapsed * 0.65) * 0.0009;
+      if (laptopGlow) laptopGlow.intensity += Math.sin(elapsed * 4.4) * 0.012;
+
+      ring.rotation.z += delta * 0.08;
+      particleField.rotation.y += delta * 0.018;
+      particleField.rotation.x = Math.sin(elapsed * 0.22) * 0.05;
+
+      camera.lookAt(cameraTarget);
+      renderer.render(scene, camera);
+    }
+
+    function buildParticleField() {
+      const count = 340;
+      const positions = new Float32Array(count * 3);
+
+      for (let i = 0; i < count; i += 1) {
+        positions[i * 3] = (Math.random() - 0.5) * 9;
+        positions[i * 3 + 1] = Math.random() * 4.6 - 0.4;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 8;
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+
+      return new THREE.Points(
+        geometry,
+        new THREE.PointsMaterial({
+          color: 0x40ffe2,
+          size: 0.014,
+          transparent: true,
+          opacity: 0.38,
+          depthWrite: false
+        })
+      );
+    }
+
+    function buildFallbackHologram() {
+      const group = new THREE.Group();
+      group.position.set(0.25, 0.28, 0);
+
+      const body = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.34, 0.84, 6, 16),
+        new THREE.MeshStandardMaterial({ color: 0x101827, roughness: 0.88, metalness: 0.05 })
+      );
+      body.position.y = 0.78;
+
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.23, 32, 32),
+        new THREE.MeshStandardMaterial({ color: 0x1b2431, roughness: 0.72 })
+      );
+      head.position.y = 1.44;
+
+      const laptop = new THREE.Mesh(
+        new THREE.BoxGeometry(0.84, 0.08, 0.52),
+        new THREE.MeshStandardMaterial({
+          color: 0x05080c,
+          roughness: 0.82,
+          metalness: 0.18,
+          emissive: 0x123f3e,
+          emissiveIntensity: 0.75
+        })
+      );
+      laptop.position.set(0, 0.58, 0.62);
+
+      laptopGlow = new THREE.SpotLight(0x40ffe2, 18, 4.2, Math.PI / 5.5, 0.58, 1.2);
+      laptopGlow.position.set(0, 0.78, 0.72);
+      laptopGlow.target.position.set(0, 1.42, 0.1);
+
+      group.add(body, head, laptop, laptopGlow, laptopGlow.target);
+      studentRoot = group;
+      scene.add(group);
+    }
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      ScrollTrigger.refresh();
+    });
+  </script>
+</body>
+</html>
